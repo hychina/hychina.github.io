@@ -22,7 +22,7 @@ In addition to establishing a scope chain, each execution context offers a keywo
 
 此时this和传统oop语言中的this并无区别。可以用this来访问翠香本身的属性和方法。
 
-{% hightlight javascript %}
+{% highlight javascript %}
 var obj = { 
    number: 42, 
    getNumber: function () { 
@@ -39,7 +39,7 @@ var number = obj.getNumber();
 
 当使用new关键字来调用构造函数的时候，this指向的是所创建的对象。
 
-{% hightlight javascript %}
+{% highlight javascript %}
 function Object(number) { 
   this.number = number; 
   this.getNumber = function () { 
@@ -59,7 +59,7 @@ var number = obj.getNumber();
 
 如果不牵扯对象，只是调用一个普通函数，此时this代表什么？
 
-{% hightlight javascript %}
+{% highlight javascript %}
 function test_this() { 
   return this; 
 } 
@@ -74,7 +74,7 @@ var i_wonder_what_this_is = test_this();
 
 这个问题比较复杂。
 
-{% hightlight javascript %}
+{% highlight javascript %}
  <script type="text/javascript"> 
   function click_handler() { 
    alert(this); // alerts the window object 
