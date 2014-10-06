@@ -22,12 +22,14 @@ In addition to establishing a scope chain, each execution context offers a keywo
 
 此时this和传统oop语言中的this并无区别。可以用this来访问翠香本身的属性和方法。
 
+{% hightlight javascript %}
 var obj = { 
    number: 42, 
    getNumber: function () { 
      return this.number; 
    } 
  }; 
+{% endhighlight %}
 
 var number = obj.getNumber(); 
 
@@ -37,15 +39,17 @@ var number = obj.getNumber();
 
 当使用new关键字来调用构造函数的时候，this指向的是所创建的对象。
 
-  function Object(number) { 
-   this.number = number; 
-   this.getNumber = function () { 
+{% hightlight javascript %}
+function Object(number) { 
+  this.number = number; 
+  this.getNumber = function () { 
     return this.number; // 注意这里的this和外面的this不同
-   } 
   } 
+} 
+var obj = new Object(42); 
+var number = obj.getNumber(); 
+{% endhighlight %}
   
-  var obj = new Object(42); 
-  var number = obj.getNumber(); 
 
 注意getNumber函数中的this和Object构造函数中的this是不同的。 我们是通过new关键字来执行Object构造函数的，所以此时this代表正在被创建的新对象。 而另一方面，我是通过obj对象来调用getNumber函数的，所以函数被执行时，this代表obj对象。
 
@@ -53,13 +57,14 @@ var number = obj.getNumber();
 
 **函数调用**
 
-
 如果不牵扯对象，只是调用一个普通函数，此时this代表什么？
 
-  function test_this() { 
-   return this; 
-  } 
-  var i_wonder_what_this_is = test_this(); 
+{% hightlight javascript %}
+function test_this() { 
+  return this; 
+} 
+var i_wonder_what_this_is = test_this(); 
+{% endhighlight %}
 
 此时this默认指向最外层的全局对象；对网页来说指向的是window对象。
 
@@ -69,6 +74,7 @@ var number = obj.getNumber();
 
 这个问题比较复杂。
 
+{% hightlight javascript %}
  <script type="text/javascript"> 
   function click_handler() { 
    alert(this); // alerts the window object 
@@ -76,6 +82,7 @@ var number = obj.getNumber();
  </script> 
  ... 
  <button id='thebutton' onclick='click_handler()'>Click me!</button>
+{% endhighlight %}
 
 如果用上面这种写法，this指向的是全局的window对象。
 
