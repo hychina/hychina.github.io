@@ -1,3 +1,6 @@
+---
+layout: post
+---
 
 每条JavaScript代码都是在一个`上下文(context)`中被执行的。
 
