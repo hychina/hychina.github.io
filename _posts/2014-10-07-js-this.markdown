@@ -1,0 +1,230 @@
+
+每条JavaScript代码都是在一个`上下文(context)`中被执行的。
+
+每个`执行上下文(execution contexts)`都划定一个作用域，这些作用域存在于一个`作用域链条(scope chain)`上。
+
+当一个函数被解释执行时，会创建一个新的执行上下文，该上下文所划定的局部作用域同时也会被添加到函数定义所在的作用域链条上。
+ 
+JavaScript在判定一个标识符的时候，会沿作用域链条向上爬，从局部到全局。
+
+所以局部变量优先级高于外层作用域中的变量。
+
+In addition to establishing a scope chain, each execution context offers a keyword named this. 
+
+执行上下文除了创建作用域链条，还提供一个关键字叫做`this`。
+
+这个关键字比较特殊，下面分四种情况讨论。
+
+**调用一个对象的方法时**
+
+此时this和传统oop语言中的this并无区别。可以用this来访问翠香本身的属性和方法。
+
+var obj = { 
+   number: 42, 
+   getNumber: function () { 
+     return this.number; 
+   } 
+ }; 
+
+var number = obj.getNumber(); 
+
+当obj.getNumber()被执行时，JavaScript会为这个函数调用创建一个执行上下文，并将this设为圆点前面的对象，即obj。这样对象就能借助this访问自身属性了。
+
+**构造函数**
+
+当使用new关键字来调用构造函数的时候，this指向的是所创建的对象。
+
+  function Object(number) { 
+   this.number = number; 
+   this.getNumber = function () { 
+    return this.number; // 注意这里的this和外面的this不同
+   } 
+  } 
+  
+  var obj = new Object(42); 
+  var number = obj.getNumber(); 
+
+注意getNumber函数中的this和Object构造函数中的this是不同的。 我们是通过new关键字来执行Object构造函数的，所以此时this代表正在被创建的新对象。 而另一方面，我是通过obj对象来调用getNumber函数的，所以函数被执行时，this代表obj对象。
+
+不同于其他普通变量，this的值不是在作用域链条上查询得到的，而是每进入一个执行上下文都会被重设。
+
+**函数调用**
+
+
+如果不牵扯对象，只是调用一个普通函数，此时this代表什么？
+
+  function test_this() { 
+   return this; 
+  } 
+  var i_wonder_what_this_is = test_this(); 
+
+此时this默认指向最外层的全局对象；对网页来说指向的是window对象。
+
+**事件处理器**
+
+假设我们用一个函数来处理onclick事件，当事件触发导致函数被调用时，this指向什么？
+
+这个问题比较复杂。
+
+ <script type="text/javascript"> 
+  function click_handler() { 
+   alert(this); // alerts the window object 
+  } 
+ </script> 
+ ... 
+ <button id='thebutton' onclick='click_handler()'>Click me!</button>
+
+如果用上面这种写法，this指向的是全局的window对象。
+
+如果事件处理器是通过JavaScript添加的，那么this指向的是产生事件的那个DOM元素。
+
+ <script type="text/javascript"> 
+  function click_handler() { 
+   alert(this); // alerts the button DOM node 
+  } 
+  
+  function addhandler() { 
+   document.getElementById('thebutton').onclick = click_handler; 
+  } 
+  
+  window.onload = addhandler; 
+ </script> 
+ ... 
+ <button id='thebutton'>Click me!</button>
+
+Complications
+Let’s run with that last example for a moment longer. What if instead of running click_handler, we wanted to ask deep_thought a question every time we clicked the button? The code for that seems pretty straightforward; we might try this:
+
+<script type="text/javascript"> 
+ function BigComputer(answer) { 
+  this.the_answer = answer; 
+  this.ask_question = function () { 
+   alert(this.the_answer); 
+  } 
+ } 
+  
+ function addhandler() { 
+  var deep_thought = new BigComputer(42), 
+   the_button = document.getElementById('thebutton'); 
+  
+  the_button.onclick = deep_thought.ask_question; 
+ } 
+  
+ window.onload = addhandler; 
+</script>
+
+Perfect, right? We click on the button, deep_thought.ask_question is executed, and we get back “42.” So why is the browser giving us undefined instead? What did we do wrong?
+
+The problem is simply this: We’ve passed off a reference to the ask_question method, which, when executed as an event handler, runs in a different context than when it’s executed as an object method. In short, the this keyword in ask_question is pointing at the DOM element that generated the event, not at a BigComputer object. The DOM element doesn’t have a the_answer property, so we’re getting back undefined instead of “42.” setTimeout exhibits similar behavior, delaying the execution of a function while at the same time moving it out into a global context.
+
+This issue crops up all over the place in our programs, and it’s a terribly difficult problem to debug without keeping careful track of what’s going on in all the corners of your program, especially if your object has properties that do exist on DOM elements or the window object.
+
+Manipulating Context With .apply() and .call()
+We really do want to be able to ask deep_thought a question when we click the button, and more generally, we do want to be able to call object methods in their native context when responding to things like events and setTimeout calls. Two little-known JavaScript methods, apply and call, indirectly enable this functionality by allowing us to manually override the default value of this when we execute a function call. Let’s look at call first:
+
+<script type="text/javascript"> 
+ var first_object = { 
+  num: 42 
+ }; 
+ var second_object = { 
+  num: 24 
+ }; 
+  
+ function multiply(mult) { 
+  return this.num * mult; 
+ } 
+  
+ multiply.call(first_object, 5); // returns 42 * 5 
+ multiply.call(second_object, 5); // returns 24 * 5 
+</script>
+
+In this example, we first define two objects, first_object and second_object, each with a num property. Then we define a multiply function that accepts a single argument, and returns the product of that argument, and the num property of its this object. If we called that function by itself, the answer returned would almost certainly be undefined, since the global window object doesn’t have a num property unless we explicitly set one. We need some way of telling multiply what its this keyword ought refer to; the call method of the multiply function is exactly what we’re looking for.
+
+The first argument to call defines what this means inside the executed function. The remaining arguments to call are passed into the executed function, just as if you’d called it yourself. So, when multiply.call(first_object, 5) is executed, the multiply function is called, 5 is passed in as the first argument, and the this keyword is set to refer to object first_object. Likewise, when multiply.call(second_object, 5) is executed, the multiply function is called, 5 is passed in as the first argument, and the this keyword is set to refer to object second_object.
+
+apply works in exactly the same way as call, but allows you to wrap up the arguments to the called function in an array, which can be quite useful when programatically generating function calls. Replicating the functionality we just talked about using apply is trivial:
+
+<script type="text/javascript"> 
+ ... 
+  
+ multiply.apply(first_object, [5]); // returns 42 * 5 
+ multiply.apply(second_object, [5]); // returns 24 * 5 
+</script>
+
+apply and call are very useful on their own, and well worth keeping around in your toolkit, but they only get us halfway to solving the problem of context shifts for event handlers. It’s easy to think that we could solve the problem by simply using call to shift the meaning of this when we set up the handler:
+
+function addhandler() { 
+ var deep_thought = new BigComputer(42), 
+  the_button = document.getElementById('thebutton'); 
+  
+ the_button.onclick = deep_thought.ask_question.call(deep_thought); 
+}
+
+The problem with this line of reasoning is simple: call executes the function immediately. Instead of providing a function reference to the onclick handler, we’re giving it the result of an executed function. We need to exploit another feature of JavaScript to really solve this problem.
+
+The Beauty of .bind()
+I’m not a huge fan of the Prototype JavaScript framework, but I am very much impressed with the quality of its code as a whole. In particular, one simple addition it makes to the Function object has had a hugely positive impact on my ability to manage the context in which function calls execute: bind performs the same general task as call, altering the context in which a function executes. The difference is that bind returns a function reference that can be used later, rather than the result of an immediate execution that we get with call.
+
+If we simplify the bind function a bit to get at the key concepts, we can insert it into the multiplication example we discussed earlier to really dig into how it works; it’s quite an elegant solution:
+
+<script type="text/javascript"> 
+ var first_object = { 
+  num: 42 
+ }; 
+ var second_object = { 
+  num: 24 
+ }; 
+  
+ function multiply(mult) { 
+  return this.num * mult; 
+ } 
+  
+ Function.prototype.bind = function(obj) { 
+  var method = this, 
+   temp = function() { 
+    return method.apply(obj, arguments); 
+   }; 
+  
+  return temp; 
+ } 
+  
+ var first_multiply = multiply.bind(first_object); 
+ first_multiply(5); // returns 42 * 5 
+  
+ var second_multiply = multiply.bind(second_object); 
+ second_multiply(5); // returns 24 * 5 
+</script>
+
+First, we define first_object, second_object, and the multiply function, just as before. With those taken care of, we move on to creating a bind method on the Function object’s prototype, which has the effect of making bind available for all functions in our program. When multiply.bind(first_object) is called, JavaScript creates an execution context for the bind method, setting this to the multiply function, and setting the first argument, obj, to reference first_object. So far, so good.
+
+The real genius of this solution is the creation of method, set equal to this (the multiply function itself). When the anonymous function is created on the next line, method is accessible via its scope chain, as is obj (this couldn’t be used here, because when the newly created function is executed, this will be overwritten by a new, local context). This alias to this makes it possible to use apply to execute the multiply function, passing in obj to ensure that the context is set correctly. In computer-science-speak, temp is a closure that, when returned at the end of the bind call, can be used in any context whatsoever to execute multiply in the context of first_object.
+
+This is exactly what we need for the event handler and setTimeout scenarios discussed above. The following code solves that problem completely, binding the deep_thought.ask_question method to the deep_thought context, so that it executes correctly whenever the event is triggered:
+
+function addhandler() { 
+ var deep_thought = new BigComputer(42), 
+  the_button = document.getElementById('thebutton'); 
+  
+ the_button.onclick = deep_thought.ask_question.bind(deep_thought); 
+}
+
+Beautiful.
+
+References
+JavaScript Closures is the best resource on the net for a thorough discussion of closures: what they do, how they do it, and how to use them without going insane.
+The Protype JavaScript Framework is full of little nuggets like bind. The version available here not only allows the binding of a particular this value, but also of some or all of a function’s arguments, which comes in handy all too often.
+Douglas Crockford’s JavaScript essays are excellent resources for both basic and advanced JavaScript programmers. The man knows what he’s talking about, and explains difficult concepts in an easy-to-grasp manner.
+Variable Scope for New Programmers is a good article if you'd like more discussion of scope from a beginner's perspective. Written by Jonathan Snook, and published in this very magazine at the end of last year, it's still an informative and useful read.
+Got something to say?
+Share your comments  with other professionals (2 comments)
+Add to Magnolia
+Add to My Yahoo!
+Add to Newsvine
+Digg this story
+Add to Del.icio.us
+Related Topics: Scripting, Programming
+
+ 
+
+Mike West abandoned suburban Texas' wide open plains in 2005 in favour of the Black Forest in Southern Germany where he currently lives and works. His musings about the web are periodically posted to his personal website, mikewest.org.
+
