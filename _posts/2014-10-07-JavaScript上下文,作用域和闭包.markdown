@@ -2,21 +2,88 @@
 layout: post
 ---
 
-每条JavaScript代码都是在一个`上下文(context)`中被执行的。
+####上下文和作用域
 
-每个`执行上下文(execution contexts)`都划定一个作用域，这些作用域存在于一个`作用域链条(scope chain)`上。
+每条JavaScript代码都是在一个`上下文(context)`中被执行的。每次函数调用都会创建一个新的`执行上下文(execution contexts)`。
 
-当一个函数被解释执行时，会创建一个新的执行上下文，该上下文所划定的局部作用域同时也会被添加到函数定义所在的作用域链条上。
+JavaScript中的函数实际上都是对象，而每个函数对象都有一个[[scope]]属性，JavaScript是通过这个属性来访问`作用域链条(scope chain)`的。
+
+当我们创建一个函数对象时(即定义一个函数时)，函数对象内部的[[scope]]属性会**指向函数定义所在上下文的作用域链条**。而当这个函数被调用执行时，会创建一个新的执行上下文，这个上下文代表一个局部作用域，这个局部作用域也会被添加到[[scope]]所指向的作用域链条上。
+
+例如，如果在全局上下文中定义一个函数，那么这个函数对象的[[scope]]属性会指向全局上下文的作用域链条，而这个作用域链条只包含一个全局对象。
+
+{% highlight javascript %}
+function exampleFunction(formalParameter){
+    ...   // function body code
+}
+{% endhighlight %}
+
+而如果在一个函数内部定义另一个函数，那么内部函数就被定义在了外部函数的执行上下文中。
  
-JavaScript在判定一个标识符的时候，会沿作用域链条向上爬，从局部到全局。
+{% highlight javascript %}
+function exampleOuterFunction(formalParameter){
+    function exampleInnerFuncitonDec(){
+        ... // inner function body
+    }
+    ...  // the rest of the outer function body.
+}
 
-所以局部变量优先级高于外层作用域中的变量。
+exampleOuterFunction( 5 );
+{% endhighlight %}
 
-In addition to establishing a scope chain, each execution context offers a keyword named this. 
+这里exampleOuterFunction定义在全局上下文中，所以其[[scope]]属性指向仅包含全局对象的作用域链条。 而当exampleOuterFunction被执行时，会创建一个新的执行上下文，这个执行上下文的作用域包含了局部作用域以及exampleOuterFunction的[[scope]]属性所指向的作用域链条(仅包含全局对象)。内部函数exampleInnerFunctionDec的[[scope]]属性指向的作用域链条和这个执行上下文的作用域相同，包含了exampleOuterFunction的局部作用域以及全局作用域。
 
-执行上下文除了创建作用域链条，还提供一个关键字叫做`this`。
+通过with表达式，我们能够改变作用域。
 
-这个关键字比较特殊，下面分四种情况讨论。
+{% highlight javascript %}
+// 创建全局变量y，指向一个对象
+var y = {x:5}; // object literal with an - x - property
+
+function exampleFuncWith(){
+    var z;
+
+    // with语句将全局变量y所指向的对象添加到作用域链条的前端(在局部作用域之前)
+    with(y){
+        z = function(){
+            ... // inner function expression body;
+        }
+    }
+    ... 
+}
+
+exampleFuncWith();
+{% endhighlight %}
+
+with语句结束之后，作用域链条会回复原状，不过with语句内定义的函数其[[scope]]属性中已经多了一个全局对象y，并且y在链条的最前端。
+
+##标识符判定##
+
+JavaScript在判定一个标识符的时候，会沿作用域链条向上爬，局部作用域在全局作用域之前，所以局部变量优先级高于外层作用域中的变量。
+
+标识符的判定从作用域链条上的第一个对象开始。JavaScript检查链条上的对象是否有一个属性和所要判定的标识符相同(因为要检查对象的属性，如果对象有原型链的话也会沿原型链进行检查)。如果第一个对象没有对应属性，那么再检查链条上的下一个对象，直到找到一个包含对应属性的对象或者穷尽所有对象为止。
+
+####闭包
+
+一般来说，在退出一个执行上下文之后，该执行上下文中的对象和函数对象就无法在外部访问了，所以可以对其进行垃圾回收。 但闭包能避免这一点。要构造一个闭包，可以在退出一个执行上下文时，将内部定义的一个函数对象作为返回值返回，或将其赋给一个全局变量，或者一个全局对象或参数对象的某个属性。
+
+{% highlight %}
+function exampleClosureForm(arg1, arg2){
+    var localVar = 8;
+    function exampleReturned(innerArg){
+        return ((arg1 + arg2)/(innerArg + localVar));
+    }
+    // 返回内部定义的函数对象
+    return exampleReturned;
+}
+
+var globalVar = exampleClosureForm(2, 4);
+{% endhighlight %}
+
+现在内部函数exampleReturned就不会被垃圾回收了，因为他被赋给了全局变量globalVar，所以仍然可以访问到。 而更重要的是由于[[scope]]属性的存在，exampleReturned函数的作用域链条上的所有对象都不会被垃圾回收了。这样我们在外部就仍能访问到localVar、arg1以及arg2了。
+
+####this关键字
+
+执行上下文除了创建作用域链条，还提供一个关键字叫做`this`。 ##不同于其他普通变量，this的值不是通过作用域链条得到的，而是每进入一个执行上下文都会被重设。## 这个关键字比较特殊，下面分四种情况讨论。
 
 **调用一个对象的方法时**
 
@@ -50,10 +117,7 @@ var obj = new Object(42);
 var number = obj.getNumber(); 
 {% endhighlight %}
   
-
 注意getNumber函数中的this和Object构造函数中的this是不同的。 我们是通过new关键字来执行Object构造函数的，所以此时this代表正在被创建的新对象。 而另一方面，我是通过obj对象来调用getNumber函数的，所以函数被执行时，this代表obj对象。
-
-不同于其他普通变量，this的值不是在作用域链条上查询得到的，而是每进入一个执行上下文都会被重设。
 
 **函数调用**
 
