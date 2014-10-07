@@ -66,7 +66,7 @@ JavaScript在判定一个标识符的时候，会沿作用域链条向上爬，�
 
 一般来说，在退出一个执行上下文之后，该执行上下文中的对象和函数对象就无法在外部访问了，所以可以对其进行垃圾回收。 但闭包能避免这一点。要构造一个闭包，可以在退出一个执行上下文时，将内部定义的一个函数对象作为返回值返回，或将其赋给一个全局变量，或者一个全局对象或参数对象的某个属性。
 
-{% highlight %}
+{% highlight javascript %}
 function exampleClosureForm(arg1, arg2){
     var localVar = 8;
     function exampleReturned(innerArg){
