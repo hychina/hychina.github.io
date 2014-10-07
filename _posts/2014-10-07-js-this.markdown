@@ -75,166 +75,167 @@ var i_wonder_what_this_is = test_this();
 这个问题比较复杂。
 
 {% highlight javascript %}
- <script type="text/javascript"> 
+<script type="text/javascript"> 
   function click_handler() { 
-   alert(this); // alerts the window object 
+    alert(this); // alerts the window object 
   } 
- </script> 
+</script> 
  ... 
- <button id='thebutton' onclick='click_handler()'>Click me!</button>
+<button id='thebutton' onclick='click_handler()'>Click me!</button>
 {% endhighlight %}
 
 如果用上面这种写法，this指向的是全局的window对象。
 
 如果事件处理器是通过JavaScript添加的，那么this指向的是产生事件的那个DOM元素。
 
- <script type="text/javascript"> 
+{% highlight javascript %}
+<script type="text/javascript"> 
   function click_handler() { 
-   alert(this); // alerts the button DOM node 
+    alert(this); // alerts the button DOM node 
   } 
   
   function addhandler() { 
-   document.getElementById('thebutton').onclick = click_handler; 
+    document.getElementById('thebutton').onclick = click_handler; 
   } 
   
   window.onload = addhandler; 
- </script> 
+</script> 
  ... 
- <button id='thebutton'>Click me!</button>
+<button id='thebutton'>Click me!</button>
+{% endhighlight %}
 
-Complications
-Let’s run with that last example for a moment longer. What if instead of running click_handler, we wanted to ask deep_thought a question every time we clicked the button? The code for that seems pretty straightforward; we might try this:
+如果把上面例子改成下面这样：
 
+{% highlight javascript %}
 <script type="text/javascript"> 
- function BigComputer(answer) { 
-  this.the_answer = answer; 
-  this.ask_question = function () { 
-   alert(this.the_answer); 
+  function Object(number) { 
+    this.number = number; 
+    this.getNumber = function () { 
+      alert(this.number); 
+    } 
   } 
- } 
   
- function addhandler() { 
-  var deep_thought = new BigComputer(42), 
-   the_button = document.getElementById('thebutton'); 
+  function addhandler() { 
+    var obj = new Object(42), 
+    the_button = document.getElementById('thebutton'); 
   
-  the_button.onclick = deep_thought.ask_question; 
- } 
+    the_button.onclick = obj.getNumber; 
+  } 
   
- window.onload = addhandler; 
+  window.onload = addhandler; 
 </script>
+{% endhighlight %}
 
-Perfect, right? We click on the button, deep_thought.ask_question is executed, and we get back “42.” So why is the browser giving us undefined instead? What did we do wrong?
+如果运行上面这段代码，我们得到的不是42，而是"undefined".
 
-The problem is simply this: We’ve passed off a reference to the ask_question method, which, when executed as an event handler, runs in a different context than when it’s executed as an object method. In short, the this keyword in ask_question is pointing at the DOM element that generated the event, not at a BigComputer object. The DOM element doesn’t have a the_answer property, so we’re getting back undefined instead of “42.” setTimeout exhibits similar behavior, delaying the execution of a function while at the same time moving it out into a global context.
+原因是函数的执行上下文变了。我们之前在调用obj.getNumber()时，this指向的是obj对象。而现在我们并没有通过obj来调用getNumber函数，我们只是将getNumber作为`回调函数(callback)`传递给了the_button对象。所以当事件触发onclick被调用时，实际上是通过the_button对象调用了getNumber函数，此时this指向的是DOM元素the_button，而这个对象并没有number这个属性，所以最终输出的是"undefined"。
 
-This issue crops up all over the place in our programs, and it’s a terribly difficult problem to debug without keeping careful track of what’s going on in all the corners of your program, especially if your object has properties that do exist on DOM elements or the window object.
+setTimeout函数也有相同的效果，不但延迟一个函数的执行，同时也将其放入全局上下文中。
 
-Manipulating Context With .apply() and .call()
-We really do want to be able to ask deep_thought a question when we click the button, and more generally, we do want to be able to call object methods in their native context when responding to things like events and setTimeout calls. Two little-known JavaScript methods, apply and call, indirectly enable this functionality by allowing us to manually override the default value of this when we execute a function call. Let’s look at call first:
+`window.setTimeout("javascript function", milliseconds);`
 
+**通过apply()和call()来掌控上下文**
+
+当执行一个函数调用时，apply和call能够让我们手动地覆盖this的默认值。
+
+{% highlight javascript %}
 <script type="text/javascript"> 
- var first_object = { 
-  num: 42 
- }; 
- var second_object = { 
-  num: 24 
- }; 
+  var first_object = { 
+    num: 42 
+  }; 
+  var second_object = { 
+    num: 24 
+  }; 
   
- function multiply(mult) { 
-  return this.num * mult; 
- } 
+  function multiply(mult) { 
+    return this.num * mult; 
+  } 
   
- multiply.call(first_object, 5); // returns 42 * 5 
- multiply.call(second_object, 5); // returns 24 * 5 
+  multiply.call(first_object, 5); // returns 42 * 5 
+  multiply.call(second_object, 5); // returns 24 * 5 
 </script>
+{% endhighlight %}
 
-In this example, we first define two objects, first_object and second_object, each with a num property. Then we define a multiply function that accepts a single argument, and returns the product of that argument, and the num property of its this object. If we called that function by itself, the answer returned would almost certainly be undefined, since the global window object doesn’t have a num property unless we explicitly set one. We need some way of telling multiply what its this keyword ought refer to; the call method of the multiply function is exactly what we’re looking for.
+call的第一个参数指定了在函数执行时this代表的是什么。(有些语言中this会作为隐含参数传递给函数，这里相当于将this参数显式地写出来了。)
 
-The first argument to call defines what this means inside the executed function. The remaining arguments to call are passed into the executed function, just as if you’d called it yourself. So, when multiply.call(first_object, 5) is executed, the multiply function is called, 5 is passed in as the first argument, and the this keyword is set to refer to object first_object. Likewise, when multiply.call(second_object, 5) is executed, the multiply function is called, 5 is passed in as the first argument, and the this keyword is set to refer to object second_object.
+apply与call的工作原理相同，只不过允许我们将参数放在一个数组中。
 
-apply works in exactly the same way as call, but allows you to wrap up the arguments to the called function in an array, which can be quite useful when programatically generating function calls. Replicating the functionality we just talked about using apply is trivial:
-
+{% highlight javascript %}
 <script type="text/javascript"> 
  ... 
   
- multiply.apply(first_object, [5]); // returns 42 * 5 
- multiply.apply(second_object, [5]); // returns 24 * 5 
+  multiply.apply(first_object, [5]); // returns 42 * 5 
+  multiply.apply(second_object, [5]); // returns 24 * 5 
 </script>
+{% endhighlight %}
 
-apply and call are very useful on their own, and well worth keeping around in your toolkit, but they only get us halfway to solving the problem of context shifts for event handlers. It’s easy to think that we could solve the problem by simply using call to shift the meaning of this when we set up the handler:
+现在你也许会认为下面这段代码能解决之前遇到的执行上下文转换问题。
 
+{% highlight javascript %}
 function addhandler() { 
- var deep_thought = new BigComputer(42), 
+  var obj = new Object(42), 
   the_button = document.getElementById('thebutton'); 
   
- the_button.onclick = deep_thought.ask_question.call(deep_thought); 
+  the_button.onclick = obj.getNumber.call(deep_thought); 
 }
+{% endhighlight %}
 
-The problem with this line of reasoning is simple: call executes the function immediately. Instead of providing a function reference to the onclick handler, we’re giving it the result of an executed function. We need to exploit another feature of JavaScript to really solve this problem.
+这段代码问题明显，我们没有将getNumber传递给the_button，而是立即执行了这个函数，将结果赋给了onclick。
+下面介绍真正的解决方案。
 
-The Beauty of .bind()
-I’m not a huge fan of the Prototype JavaScript framework, but I am very much impressed with the quality of its code as a whole. In particular, one simple addition it makes to the Function object has had a hugely positive impact on my ability to manage the context in which function calls execute: bind performs the same general task as call, altering the context in which a function executes. The difference is that bind returns a function reference that can be used later, rather than the result of an immediate execution that we get with call.
+**bind()的美妙**
 
-If we simplify the bind function a bit to get at the key concepts, we can insert it into the multiplication example we discussed earlier to really dig into how it works; it’s quite an elegant solution:
+和call一样，bind的作用也是指定函数执行时的上下文。不同时bind不会立即执行一个函数，而是返回这个函数的一个引用。
 
+下面通过代码演示bind的工作原理。
+
+{% highlight javascript %}
 <script type="text/javascript"> 
- var first_object = { 
-  num: 42 
- }; 
- var second_object = { 
-  num: 24 
- }; 
+  var first_object = { 
+    num: 42 
+  }; 
+  var second_object = { 
+    num: 24 
+  }; 
   
- function multiply(mult) { 
-  return this.num * mult; 
- } 
+  function multiply(mult) { 
+    return this.num * mult; 
+  } 
   
- Function.prototype.bind = function(obj) { 
-  var method = this, 
-   temp = function() { 
-    return method.apply(obj, arguments); 
-   }; 
+  Function.prototype.bind = function(obj) { 
+    var method = this, 
+    temp = function() { 
+      return method.apply(obj, arguments); 
+    }; 
   
-  return temp; 
- } 
+    return temp; 
+  } 
   
- var first_multiply = multiply.bind(first_object); 
- first_multiply(5); // returns 42 * 5 
+  var first_multiply = multiply.bind(first_object); 
+  first_multiply(5); // returns 42 * 5 
   
- var second_multiply = multiply.bind(second_object); 
- second_multiply(5); // returns 24 * 5 
+  var second_multiply = multiply.bind(second_object); 
+  second_multiply(5); // returns 24 * 5 
 </script>
+{% endhighlight %}
 
-First, we define first_object, second_object, and the multiply function, just as before. With those taken care of, we move on to creating a bind method on the Function object’s prototype, which has the effect of making bind available for all functions in our program. When multiply.bind(first_object) is called, JavaScript creates an execution context for the bind method, setting this to the multiply function, and setting the first argument, obj, to reference first_object. So far, so good.
+Function.prototype.bind使得所有函数都具有了bind这个方法。
+当multiply.bind被调用时，JavaScript为bind方法创建一个执行上下文，并将this设置为multiply函数。
 
-The real genius of this solution is the creation of method, set equal to this (the multiply function itself). When the anonymous function is created on the next line, method is accessible via its scope chain, as is obj (this couldn’t be used here, because when the newly created function is executed, this will be overwritten by a new, local context). This alias to this makes it possible to use apply to execute the multiply function, passing in obj to ensure that the context is set correctly. In computer-science-speak, temp is a closure that, when returned at the end of the bind call, can be used in any context whatsoever to execute multiply in the context of first_object.
+这都没有问题，关键在于method这个变量。
 
-This is exactly what we need for the event handler and setTimeout scenarios discussed above. The following code solves that problem completely, binding the deep_thought.ask_question method to the deep_thought context, so that it executes correctly whenever the event is triggered:
+method变量记录了bind执行时this的值，而在下一行创建的匿名函数中，method的值是通过作用域链条得到的(而不是像this那样每次调用都被重置)，obj的值同样如此。
 
+
+这里的temp是一个闭包(`closure`)，能够记录
+
+现在，我们可以用下面的方式解决之前的问题了。
+
+{% highlight javascript %}
 function addhandler() { 
- var deep_thought = new BigComputer(42), 
+  var obj = new Object(42), 
   the_button = document.getElementById('thebutton'); 
   
- the_button.onclick = deep_thought.ask_question.bind(deep_thought); 
+  the_button.onclick = obj.getNumber.bind(obj); 
 }
-
-Beautiful.
-
-References
-JavaScript Closures is the best resource on the net for a thorough discussion of closures: what they do, how they do it, and how to use them without going insane.
-The Protype JavaScript Framework is full of little nuggets like bind. The version available here not only allows the binding of a particular this value, but also of some or all of a function’s arguments, which comes in handy all too often.
-Douglas Crockford’s JavaScript essays are excellent resources for both basic and advanced JavaScript programmers. The man knows what he’s talking about, and explains difficult concepts in an easy-to-grasp manner.
-Variable Scope for New Programmers is a good article if you'd like more discussion of scope from a beginner's perspective. Written by Jonathan Snook, and published in this very magazine at the end of last year, it's still an informative and useful read.
-Got something to say?
-Share your comments  with other professionals (2 comments)
-Add to Magnolia
-Add to My Yahoo!
-Add to Newsvine
-Digg this story
-Add to Del.icio.us
-Related Topics: Scripting, Programming
-
- 
-
-Mike West abandoned suburban Texas' wide open plains in 2005 in favour of the Black Forest in Southern Germany where he currently lives and works. His musings about the web are periodically posted to his personal website, mikewest.org.
-
+{% endhighlight %}
