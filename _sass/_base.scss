@@ -9,21 +9,17 @@ dl, dd, ol, ul, figure {
     padding: 0;
 }
 
-
+* {
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+}
 
 /**
  * Basic styling
  */
 
-html {
-	background: $background-image repeat;
-	-webkit-background-size: cover;
-	-moz-background-size: cover;
-	-o-background-size: cover;
-	background-size: cover;
-}
-
 body {
+    background-color: $background-color;
     font-family: $base-font-family;
     font-size: $base-font-size;
     line-height: $base-line-height;
@@ -163,9 +159,7 @@ pre {
  * Wrapper
  */
 .wrapper {
-
-    max-width: -webkit-calc(800px - (#{$spacing-unit} * 2));
-    max-width:         calc(800px - (#{$spacing-unit} * 2));
+    max-width: 1080px;
     margin-right: auto;
     margin-left: auto;
     padding-right: $spacing-unit;
@@ -179,7 +173,6 @@ pre {
         padding-left: $spacing-unit / 2;
     }
 }
-
 
 
 /**
@@ -213,7 +206,3 @@ pre {
     }
 }
 
-hr.dash-style {
-    border: 0;
-    border-bottom: 1px dashed #ddd;
-}
